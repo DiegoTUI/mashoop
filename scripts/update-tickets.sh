@@ -1,2 +1,3 @@
 #!/usr/bin/env sh
-/usr/local/bin/node /etc/tuiinnovation/config/nodejs/mashoop/scripts/update-tickets.js
+current="$( cd -P "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
+/usr/local/bin/node $current/update-tickets.js
