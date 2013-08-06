@@ -12,13 +12,29 @@ var log = require('./util/log.js');
 /**
  * Constants.
  */
-process.title = 'tuiMashup';
+process.title = 'mashoop';
 /**
  * Process uncaught exceptions.
  */
  process.on('uncaughtException', function(err) {
 	log.error("We found an uncaught exception.");
 	log.error(err.stack);
+	process.exit(0);
+});
+ /**
+ * Process exit events.
+ */
+ process.on('SIGINT', function() {
+	log.info("Received SIGINT signal");
+	process.exit(1);
+});
+ process.on('SIGTERM', function() {
+	log.info("Received SIGTERM signal");
+	process.exit(1);
+});
+ 
+ process.on('exit', function(code) {
+	log.info("About to exit with code: " + code);
 });
 
 /**
