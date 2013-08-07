@@ -11,11 +11,11 @@
 var mongo = require('mongodb');
 var fs = require('fs');
 var path = require('path');
-var ATTicketAvail = require('../services/ATTicketAvail.js');
-var log = require('../util/log.js');
-var util = require('../util/util.js');
-var atlas = require('../services/config/atlas.js');
-var atlasDefaults = require('../services/config/atlasDefaults.js');
+var ATTicketAvail = require('../lib/services/ATTicketAvail.js').ATTicketAvail;
+var log = require('../lib/util/log.js');
+var util = require('../lib/util/util.js');
+var atlas = require('../lib/services/config/atlas.js');
+var atlasDefaults = require('../lib/services/config/atlasDefaults.js');
 
 /**
  * Constants.
@@ -58,8 +58,12 @@ var removed = {};
  */
  function parseTickets (parameters, collection, finished) {
 
- 	function ok(result) {
-		log.info("Received " + result.length + " tickets for " + destinationCode + " in " + language);
+ 	function atlasCallback(error, result) {
+ 		if (error) {
+ 			log.error('Error returned while calling ' + JSON.stringify(parameters) + ": " + JSON.stringify(error));
+ 			return;
+ 		}
+ 		log.info("Received " + result.length + " tickets for " + destinationCode + " in " + language);
 		//check if I have to remove the elements of the collection
 		if (removed[destinationCode]) { //already removed, just update DB
 			updateDB(result);
@@ -74,14 +78,7 @@ var removed = {};
 				updateDB(result);
 			});
 		}
-	}
-
-	function nok(result) {
-		var message = 'Error returned while calling: ' + JSON.stringify(parameters) + '. Status code: ' + result.statusCode;
-		if (error)
-			message += '. Error: ' + JSON.stringify(result.error);
-		log.error(message)
-	}
+ 	}
 
 	function updateDB(result) {
 		//browse the tickets, update the db
@@ -136,7 +133,7 @@ var removed = {};
 	var language = parameters.Language;
  	var ticketAvailRQ = new ATTicketAvail(parameters, ticketAvailMap, "ServiceTicket");
  	log.info("Calling ATLAS for " + destinationCode + " in " + language);
- 	ticketAvailRQ.sendRequest(ok,nok);
+ 	ticketAvailRQ.sendRequest(atlasCallback);
  }
 
 /**
