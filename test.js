@@ -15,7 +15,7 @@ exports.test = function(callback)
 {
 	var tests = {};
 	var files = {};
-	//files['lib'] = [ 'app.js' ];
+	files['lib'] = [ 'app' ];
 	files['lib/io'] = [ 'ajax', 'parametrized-string', 'xml-reader' ];
 	files['lib/services'] = [ 'at-ticket-avail', 'fs-venue-search' ];
 	files['lib/util'] = [ 'util' ];
