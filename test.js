@@ -7,6 +7,7 @@
 
 // requires
 var testing = require('testing');
+var isTesting = true;
 
 /**
  * Run all module tests.
