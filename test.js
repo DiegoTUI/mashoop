@@ -8,7 +8,6 @@
 // requires
 var testing = require('testing');
 
-
 /**
  * Run all module tests.
  */
