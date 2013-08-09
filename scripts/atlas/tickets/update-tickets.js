@@ -11,11 +11,11 @@
 var mongo = require('mongodb');
 var fs = require('fs');
 var path = require('path');
-var ATTicketAvail = require('../lib/services/at-ticket-avail.js').ATTicketAvail;
-var log = require('../lib/util/log.js');
-var util = require('../lib/util/util.js').util;
-var atlas = require('../lib/services/config/atlas.js');
-var atlasDefaults = require('../lib/services/config/atlas-defaults.js');
+var ATTicketAvail = require('../../../lib/services/at-ticket-avail.js').ATTicketAvail;
+var log = require('../../../lib/util/log.js');
+var util = require('../../../lib/util/util.js').util;
+var atlas = require('../../../lib/services/config/atlas.js');
+var atlasDefaults = require('../../../lib/services/config/atlas-defaults.js');
 
 /**
  * Constants.
