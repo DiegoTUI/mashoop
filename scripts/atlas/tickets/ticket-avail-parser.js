@@ -4,11 +4,9 @@
  * A parser for TicketAvailRQ. Connects to Atlas, makes a query,
  * and stores the results in the different databases.
  */
- var ticketAvailParser = new function () {
+ var TicketAvailParser = function (testing) {
  	// self-reference
 	var self = this;
-	// are we testing
-	self.testing = false;
 	//requires
 	var async = require('async');
 	var ATTicketAvail = require('../lib/services/at-ticket-avail.js').ATTicketAvail;
@@ -76,13 +74,14 @@
 	/**
 	 * Update mongodb
 	 * dataReceived: data received from ATTicketAvail
+	 * callback(error,results): callback with the results of the updating
 	 */
 	function updateMongo(dataReceived, callback) {
 		//the database
 		var mongo = require('mongodb');
 		var server = new mongo.Server("127.0.0.1", mongo.Connection.DEFAULT_PORT, {});
 		log.info("db listening on port: " + mongo.Connection.DEFAULT_PORT);
-		var dbname = self.testing ? "mashooptest" : "mashoop"
+		var dbname = testing ? "mashooptest" : "mashoop"
 		var db = new mongo.Db(dbname, server, {w:1});
 		//open database and collection
 		async.series([
@@ -149,10 +148,52 @@
 			}
 		);
 	}
+
+	/**
+	 * Update memcahe
+	 * dataReceived: data received from ATTicketAvail
+	 * callback(error,results): callback with the results of the updating
+	 */
+	function updateMemcache(dataReceived, callback){
+		callback(null,0);
+	}
+
 	return self;
  }
 
  exports.ticketAvailParser = ticketAvailParser;
+
+ /***********************************
+ ************ UNIT TESTS ***********
+ ***********************************/
+ var testing = require('testing');
+
+ function testTicketAvailParser(callback) {
+ 	var queryParameters = {
+ 		PaginationData_itemsPerPage: "2000",
+ 		Language: "ENG",
+ 		Destination_code: "BCN"
+ 	};
+ 	//delete mongo and memcache
+
+ 	var ticketAvailParser = new TicketAvailParser(/*testing*/ true);
+ 	ticketAvailParser.parseTickets(queryParameters, function(error, result) {
+ 		testing.ok(error != null, "valid query to Atlas returned an error: " + JSON.stringify(error), callback);
+ 	});
+
+ }
+
+ exports.test = function(callback) {
+	testing.run({
+		testTicketAvailParser: testTicketAvailParser
+	}, 100000, callback);
+}
+
+ // start tests if invoked directly
+if (__filename == process.argv[1])
+{
+    exports.test(testing.show);
+}
 
 
 
