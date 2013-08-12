@@ -9,6 +9,7 @@
 // requires
 var cluster = require('cluster');
 var app = require("./lib/app.js");
+var log = require('./lib/util/log.js');
 
 // globals
 var numCPUs = require('os').cpus().length;
@@ -23,7 +24,7 @@ if (cluster.isMaster)
 	}
 	cluster.on('exit', function(worker, code, signal)
 	{
-		console.log('worker ' + worker.process.pid + ' died');
+		log.info('worker ' + worker.process.pid + ' died');
 		cluster.fork();
 	});
 }
@@ -31,5 +32,6 @@ else
 {
 	// start the server
 	app.startServer();
+	log.info("worker " + cluster.worker.id + " listening");
 }
 
