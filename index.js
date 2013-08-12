@@ -1,3 +1,6 @@
 'use strict';
 
-require("./lib/app.js");
+var app = require("./lib/app.js");
+
+app.startServer();
+
