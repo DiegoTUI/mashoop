@@ -20,6 +20,7 @@ exports.test = function(callback)
 	files['lib/io'] = [ 'ajax', 'parametrized-string', 'xml-reader' ];
 	files['lib/services'] = [ 'at-ticket-avail', 'fs-venue-search' ];
 	files['lib/util'] = [ 'util' ];
+	files['scripts/atlas/tickets'] = ['ticket-avail-parser'];
 	for (var path in files) {
 		files[path].forEach(function(file) {
 			tests[path + "/" + file] = require('./' + path + '/' + file + '.js').test;
