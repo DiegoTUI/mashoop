@@ -1,17 +1,23 @@
 'use strict';
 
+var async = require('async');
+var log = require('../../../lib/util/log.js');
+var mongo = require('mongodb');
+var memcache = require('memcache');
+var ATTicketAvail = require('../../../lib/services/at-ticket-avail.js').ATTicketAvail;
+
 /**
  * A parser for TicketAvailRQ. Connects to Atlas, makes a query,
  * and stores the results in the different databases.
+ * queryParameters: the parameters of the query to be launched
+ * testing: is testing mode
  */
- var TicketAvailParser = function (testing) {
+ exports.TicketAvailParser = function (queryParameters, testing) {
  	// self-reference
 	var self = this;
-	//requires
-	var async = require('async');
-	var ATTicketAvail = require('../lib/services/at-ticket-avail.js').ATTicketAvail;
-	var log = require('../lib/util/log.js');
-	var memcache = require('memcache');
+	//some handy vars
+	var destinationCode = queryParameters.Destination_code;
+	var language = queryParameters.Language;
 	//Description map to parse the response
 	var ticketAvailMap = [
 		{'code': 'TicketInfo.Code'},
@@ -34,12 +40,9 @@
  	
 	/**
 	 * Public method to start the parsing
-	 * queryParameters: the parameters of the query to be launched
 	 * callback: a function (error, result) to call back when the parsing has finished
 	 */
-	self.parseTickets = function (queryParameters, callback) {
-		var destinationCode = queryParameters.Destination_code;
-		var language = queryParameters.Language;
+	self.parseTickets = function (callback) {
 	 	var ticketAvailRQ = new ATTicketAvail(queryParameters, ticketAvailMap, "ServiceTicket");
 	 	log.info("Calling ATLAS for " + destinationCode + " in " + language);
 	 	ticketAvailRQ.sendRequest(function (error, dataReceived) {
@@ -77,25 +80,24 @@
 	 * callback(error,results): callback with the results of the updating
 	 */
 	function updateMongo(dataReceived, callback) {
-		var mongo = require('mongodb');
 		var server = new mongo.Server("127.0.0.1", mongo.Connection.DEFAULT_PORT, {});
 		log.info("db listening on port: " + mongo.Connection.DEFAULT_PORT);
 		var dbname = testing ? "mashooptest" : "mashoop"
 		var db = new mongo.Db(dbname, server, {w:1});
-		//open database and collection
-		async.series([
-			db.open,
-			function(callback) {
+		//update mongo in waterfall
+		async.waterfall ([
+			//Open db
+			function (callback) {
+				db.open(function(error, db) {
+					callback(error, db);
+				});
+			},
+			//open collection
+			function (db, callback) {
 				db.collection('tickets', callback);
-			}],
-			//Callback from series
-			function (error, results) {
-				if (error) {
-					log.error("error returned while trying to open the database or collection: " + JSON.stringify(error));
-					callback(error);
-					return;
-				}
-				var collection = results[1];
+			},
+			//perform update
+			function (collection, callback) {
 				//browse the tickets, update the db
 				var totalTickets = dataReceived.length;
 				var countParsedTickets = 0;
@@ -148,6 +150,10 @@
 						}
 					);
 				});
+			}],
+			//Callback from waterfall
+			function (error, parsedTickets) {
+				callback (error, parsedTickets);
 			}
 		);
 	}
@@ -165,8 +171,6 @@
 	return self;
  }
 
- exports.ticketAvailParser = ticketAvailParser;
-
  /***********************************
  ************ UNIT TESTS ***********
  ***********************************/
@@ -174,50 +178,66 @@
 
  function testTicketAvailParser(callback) {
  	//delete test mongo and memcache
- 	var mongo = require('mongodb');
  	var db = new mongo.Db('mashooptest', new mongo.Server("127.0.0.1", mongo.Connection.DEFAULT_PORT, {}), {w:1});
- 	//open and delete mongo (and memcached)
- 	async.series([
- 		db.open,
+ 	async.waterfall ([
+ 		//Open db
  		function(asyncCallback) {
+ 			log.info("about to open db");
+ 			db.open(function(error,db){
+ 				log.info("opened db");
+ 				asyncCallback(error, db);
+ 			});
+ 		},
+ 		//Open collection
+ 		function (db, asyncCallback) {
+ 			log.info("db: " + db);
  			db.collection('tickets', asyncCallback);
  		},
- 		//********CAN I DELETE MONGO HERE?? I NEED THE RESULTS FROM PREVIOUS SERIES FUNCTION********//
+ 		//Remove all elements from collection
+ 		function (collection, asyncCallback) {
+ 			log.info("collection: " + collection);
+ 			collection.remove({}, function (error, numberRemoved){
+ 				log.info("removed: " + numberRemoved + ". Error: " + error);
+ 				asyncCallback (error, collection);
+ 			});
+ 		},
+ 		//Call parseTickets
+ 		function (collection, asyncCallback) {
+ 			var queryParameters = {
+		 		PaginationData_itemsPerPage: "2000",
+		 		Language: "ENG",
+		 		Destination_code: "BCN"
+		 	};
+		 	var ticketAvailParser = new exports.TicketAvailParser(queryParameters, /*testing*/ true);
+		 	ticketAvailParser.parseTickets(function (error, parsedTickets) {
+		 		log.info("callback from parseTickets");
+		 		asyncCallback (error, collection, parsedTickets);
+		 	});
+ 		},
+ 		//Count tickets
+ 		function (collection, parsedTickets, asyncCallback) {
+ 			log.info("entered count");
+ 			var countQuery = {};
+			countQuery["destinationCode"] = "BCN";
+			countQuery["name.ENG"] = {"$exists": true};
+			countQuery["DescriptionList.ENG"] = {"$exists": true};
+			collection.count(countQuery, function (error, mongoCount) {
+				asyncCallback (error, parsedTickets, [mongoCount, 0]);
+			});
+ 		},
+ 		//perform tests and close db
+ 		function (parsedTickets, countTickets, asyncCallback) {
+ 			log.info("entered last step");
+ 			testing.assertEquals(parsedTickets[0], countTickets[0], "Didn't store all the parsed tickets in mongo", callback);
+ 			testing.assertEquals(parsedTickets[1], countTickets[1], "Didn't store all the parsed tickets in memcached", callback);
+ 			db.close (true, asyncCallback);
+ 		}
  		],
- 		//callback from series
- 		function (error, results) {
- 			testing.assert(error != null, "opening the database and collection produced and error: " + JSON.stringify(error), callback);
- 			var collection = results[1];
- 			var ticketAvailParser = new TicketAvailParser(/*testing*/ true);
- 			//delete, populate and count
- 			async.series([
- 				function (asyncCallback) {
- 					collection.remove({}, asyncCallback);
- 				},
- 				function (asyncCallback) {
- 					var queryParameters = {
-				 		PaginationData_itemsPerPage: "2000",
-				 		Language: "ENG",
-				 		Destination_code: "BCN"
-				 	};
-				 	ticketAvailParser.parseTickets(queryParameters, asyncCallback)
- 				},
- 				function (asyncCallback) {
- 					var countQuery = {};
-					countQuery["destinationCode"] = "BCN";
-					countQuery["name.ENG"] = {"$exists": true};
-					countQuery["DescriptionList.ENG"] = {"$exists": true};
-					collection.count(countQuery, asyncCallback);
- 				}],
- 				//callback from series
- 				function (error, results) {
- 					testing.assert(error != null, "Error while removing db or parsing tickets: " + JSON.stringify(error), callback);
- 					var parsedTickets = results[1];
- 					testing.assert(parsedTickets > 20, "seems like parsed tickets for this query is too low: " + parsedTickets, callback);
- 					var countedTickets = results[2];
- 					testing.assertEquals(parsedTickets, countedTickets, "Didn't store all the parsed tickets in mongo", callback);
- 				}
- 			);
+ 		//callback from waterfall
+ 		function (error) {
+ 			log.info("Entered test waterfall callback")
+ 			testing.assertEquals(error, null, "An error occured in the waterfal test process: " + JSON.stringify(error), callback);
+ 			testing.success(callback);
  		}
  	);
  }
