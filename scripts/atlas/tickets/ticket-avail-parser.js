@@ -77,7 +77,6 @@
 	 * callback(error,results): callback with the results of the updating
 	 */
 	function updateMongo(dataReceived, callback) {
-		//the database
 		var mongo = require('mongodb');
 		var server = new mongo.Server("127.0.0.1", mongo.Connection.DEFAULT_PORT, {});
 		log.info("db listening on port: " + mongo.Connection.DEFAULT_PORT);
@@ -87,7 +86,7 @@
 		async.series([
 			db.open,
 			function(callback) {
-				db.collection(tickets, callback);
+				db.collection('tickets', callback);
 			}],
 			//Callback from series
 			function (error, results) {
@@ -96,6 +95,7 @@
 					callback(error);
 					return;
 				}
+				var collection = results[1];
 				//browse the tickets, update the db
 				var totalTickets = dataReceived.length;
 				var countParsedTickets = 0;
@@ -140,7 +140,10 @@
 							//Update success, check if finished
 							countParsedTickets++;
 							if (countParsedTickets == totalTickets){
-								callback(null, totalTickets);
+								//close and callback
+								db.close(true, function(error) {
+									callback (error, countParsedTickets);
+								});
 							}
 						}
 					);
@@ -155,6 +158,7 @@
 	 * callback(error,results): callback with the results of the updating
 	 */
 	function updateMemcache(dataReceived, callback){
+		//so far, so good
 		callback(null,0);
 	}
 
@@ -169,18 +173,53 @@
  var testing = require('testing');
 
  function testTicketAvailParser(callback) {
- 	var queryParameters = {
- 		PaginationData_itemsPerPage: "2000",
- 		Language: "ENG",
- 		Destination_code: "BCN"
- 	};
- 	//delete mongo and memcache
-
- 	var ticketAvailParser = new TicketAvailParser(/*testing*/ true);
- 	ticketAvailParser.parseTickets(queryParameters, function(error, result) {
- 		testing.ok(error != null, "valid query to Atlas returned an error: " + JSON.stringify(error), callback);
- 	});
-
+ 	//delete test mongo and memcache
+ 	var mongo = require('mongodb');
+ 	var db = new mongo.Db('mashooptest', new mongo.Server("127.0.0.1", mongo.Connection.DEFAULT_PORT, {}), {w:1});
+ 	//open and delete mongo (and memcached)
+ 	async.series([
+ 		db.open,
+ 		function(asyncCallback) {
+ 			db.collection('tickets', asyncCallback);
+ 		},
+ 		//********CAN I DELETE MONGO HERE?? I NEED THE RESULTS FROM PREVIOUS SERIES FUNCTION********//
+ 		],
+ 		//callback from series
+ 		function (error, results) {
+ 			testing.assert(error != null, "opening the database and collection produced and error: " + JSON.stringify(error), callback);
+ 			var collection = results[1];
+ 			var ticketAvailParser = new TicketAvailParser(/*testing*/ true);
+ 			//delete, populate and count
+ 			async.series([
+ 				function (asyncCallback) {
+ 					collection.remove({}, asyncCallback);
+ 				},
+ 				function (asyncCallback) {
+ 					var queryParameters = {
+				 		PaginationData_itemsPerPage: "2000",
+				 		Language: "ENG",
+				 		Destination_code: "BCN"
+				 	};
+				 	ticketAvailParser.parseTickets(queryParameters, asyncCallback)
+ 				},
+ 				function (asyncCallback) {
+ 					var countQuery = {};
+					countQuery["destinationCode"] = "BCN";
+					countQuery["name.ENG"] = {"$exists": true};
+					countQuery["DescriptionList.ENG"] = {"$exists": true};
+					collection.count(countQuery, asyncCallback);
+ 				}],
+ 				//callback from series
+ 				function (error, results) {
+ 					testing.assert(error != null, "Error while removing db or parsing tickets: " + JSON.stringify(error), callback);
+ 					var parsedTickets = results[1];
+ 					testing.assert(parsedTickets > 20, "seems like parsed tickets for this query is too low: " + parsedTickets, callback);
+ 					var countedTickets = results[2];
+ 					testing.assertEquals(parsedTickets, countedTickets, "Didn't store all the parsed tickets in mongo", callback);
+ 				}
+ 			);
+ 		}
+ 	);
  }
 
  exports.test = function(callback) {
