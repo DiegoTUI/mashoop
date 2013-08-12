@@ -47,7 +47,7 @@ var ATTicketAvail = require('../../../lib/services/at-ticket-avail.js').ATTicket
 	 	log.info("Calling ATLAS for " + destinationCode + " in " + language);
 	 	ticketAvailRQ.sendRequest(function (error, dataReceived) {
 	 		if (error) {
-	 			log.error('Error returned while calling ' + JSON.stringify(parameters) + ": " + JSON.stringify(error));
+	 			log.error('Error returned while calling ' + JSON.stringify(queryParameters) + ": " + JSON.stringify(error));
 	 			callback(error);
 	 			return;
 	 		}
