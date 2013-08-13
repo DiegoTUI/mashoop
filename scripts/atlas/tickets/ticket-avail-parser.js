@@ -1,10 +1,11 @@
 'use strict';
-
+//requires
 var async = require('async');
 var log = require('../../../lib/util/log.js');
 var mongo = require('mongodb');
 var memcache = require('memcache');
 var ATTicketAvail = require('../../../lib/services/at-ticket-avail.js').ATTicketAvail;
+var testing = require('testing');
 
 /**
  * A parser for TicketAvailRQ. Connects to Atlas, makes a query,
@@ -174,9 +175,7 @@ var ATTicketAvail = require('../../../lib/services/at-ticket-avail.js').ATTicket
  /***********************************
  ************ UNIT TESTS ***********
  ***********************************/
- var testing = require('testing');
-
- function testTicketAvailParser(callback) {
+function testTicketAvailParser(callback) {
  	//delete test mongo and memcache
  	var db = new mongo.Db('mashooptest', new mongo.Server("127.0.0.1", mongo.Connection.DEFAULT_PORT, {}), {w:1});
  	async.waterfall ([
@@ -242,15 +241,14 @@ var ATTicketAvail = require('../../../lib/services/at-ticket-avail.js').ATTicket
  	);
  }
 
- exports.test = function(callback) {
+exports.test = function(callback) {
 	testing.run({
 		testTicketAvailParser: testTicketAvailParser
 	}, 100000, callback);
 }
 
  // start tests if invoked directly
-if (__filename == process.argv[1])
-{
+if (__filename == process.argv[1]) {
     exports.test(testing.show);
 }
 
