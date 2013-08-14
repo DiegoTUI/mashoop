@@ -112,14 +112,12 @@ var testing = require('testing');
 					async.waterfall([
 						//find the item
 						function (callback) {
-							log.info("find the item");
 							collection.findOne({destinationCode: destinationCode, code:ticket.code}, function(error, retrievedTicket) {
 								callback(error, retrievedTicket)
 							});
 						},
 						//set and unset
 						function (retrievedTicket, callback) {
-							log.info("set and unset");
 							setItem["id"] = retrievedTicket ? retrievedTicket.id : util.randomString(util.mongoIdLength);
 							setItem["created"] = retrievedTicket ? retrievedTicket.created : new Date();
 							setItem["lastUpdated"] = retrievedTicket ? new Date() : setItem["created"];
@@ -131,7 +129,6 @@ var testing = require('testing');
 						},
 						//push
 						function (callback) {
-							log.info("push");
 							collection.update({code: ticket['code']},
 								{'$push': pushItem},
 								{upsert: true}, callback);
