@@ -19,6 +19,7 @@
     "log":"1.4.x",
     "testing":"0.0.x",
     "async":"0.2.x",
+    "memcached":"0.2.x",
     "loadtest":"0.1.x"
   },
   "scripts": {
