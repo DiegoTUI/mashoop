@@ -17,7 +17,7 @@ exports.test = function(callback)
 	var files = {};
 	files['lib'] = [ 'app' ];
 	files['lib/io'] = [ 'ajax', 'parametrized-string', 'xml-reader' ];
-	files['lib/services'] = [ 'at-ticket-avail', 'fs-venue-search' ];
+	files['lib/services'] = [ 'at-ticket-avail', 'fs-venue-search', 'at-read-ticket-names' ];
 	files['lib/util'] = [ 'util' ];
 	files['scripts/atlas/tickets'] = ['ticket-avail-parser'];
 	for (var path in files) {
