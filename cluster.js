@@ -15,21 +15,17 @@ var log = require('./lib/util/log.js');
 var numCPUs = require('os').cpus().length;
 
 // init
-if (cluster.isMaster)
-{
+if (cluster.isMaster) {
 	// create one worker per CPU
-	for (var i = 0; i < numCPUs; i++)
-	{
+	for (var i = 0; i < numCPUs; i++) {
 		cluster.fork();
 	}
-	cluster.on('exit', function(worker, code, signal)
-	{
+	cluster.on('exit', function(worker, code, signal) {
 		log.info('worker ' + worker.process.pid + ' died');
 		cluster.fork();
 	});
 }
-else
-{
+else {
 	// start the server
 	app.startServer();
 	log.info("worker " + cluster.worker.id + " listening");

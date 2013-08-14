@@ -1,10 +1,12 @@
 'use strict';
-
+//requires
 var async = require('async');
 var log = require('../../../lib/util/log.js');
+var util = require('../../../lib/util/util.js').util;
 var mongo = require('mongodb');
 var memcache = require('memcache');
 var ATTicketAvail = require('../../../lib/services/at-ticket-avail.js').ATTicketAvail;
+var testing = require('testing');
 
 /**
  * A parser for TicketAvailRQ. Connects to Atlas, makes a query,
@@ -102,6 +104,8 @@ var ATTicketAvail = require('../../../lib/services/at-ticket-avail.js').ATTicket
 				var totalTickets = dataReceived.length;
 				var countParsedTickets = 0;
 				dataReceived.forEach(function(ticket, index) {
+					//Decapitalize ticket keys
+					ticket = util.decapitalizeKeys(ticket);
 					//Items to set and unset
 					var setItem = {
 						code: ticket['code'],
@@ -111,15 +115,15 @@ var ATTicketAvail = require('../../../lib/services/at-ticket-avail.js').ATTicket
 					};
 					setItem["name."+language] = ticket.name;
 					var unsetItem ={
-						ImageList: 1,
-						AvailableModalityList: 1
+						imageList: 1,
+						availableModalityList: 1
 					};
-					unsetItem["DescriptionList."+language] = 1;
+					unsetItem["descriptionList."+language] = 1;
 					//Items to push
 					var pushItem = {};
-					pushItem["ImageList"] = {'$each': ticket["ImageList"]};
-					pushItem["AvailableModalityList"] = {'$each': ticket["AvailableModalityList"]};
-					pushItem["DescriptionList."+language] = {'$each': ticket["DescriptionList"]};
+					pushItem["imageList"] = {'$each': ticket["imageList"]};
+					pushItem["availableModalityList"] = {'$each': ticket["availableModalityList"]};
+					pushItem["descriptionList."+language] = {'$each': ticket["descriptionList"]};
 					//Set and unset first, then push
 					async.series([
 						function (callback) {
@@ -174,9 +178,7 @@ var ATTicketAvail = require('../../../lib/services/at-ticket-avail.js').ATTicket
  /***********************************
  ************ UNIT TESTS ***********
  ***********************************/
- var testing = require('testing');
-
- function testTicketAvailParser(callback) {
+function testTicketAvailParser(callback) {
  	//delete test mongo and memcache
  	var db = new mongo.Db('mashooptest', new mongo.Server("127.0.0.1", mongo.Connection.DEFAULT_PORT, {}), {w:1});
  	async.waterfall ([
@@ -220,7 +222,7 @@ var ATTicketAvail = require('../../../lib/services/at-ticket-avail.js').ATTicket
  			var countQuery = {};
 			countQuery["destinationCode"] = "BCN";
 			countQuery["name.ENG"] = {"$exists": true};
-			countQuery["DescriptionList.ENG"] = {"$exists": true};
+			countQuery["descriptionList.ENG"] = {"$exists": true};
 			collection.count(countQuery, function (error, mongoCount) {
 				asyncCallback (error, parsedTickets, [mongoCount, 0]);
 			});
@@ -228,8 +230,8 @@ var ATTicketAvail = require('../../../lib/services/at-ticket-avail.js').ATTicket
  		//perform tests and close db
  		function (parsedTickets, countTickets, asyncCallback) {
  			log.info("entered last step");
- 			testing.assertEquals(parsedTickets[0], countTickets[0], "Didn't store all the parsed tickets in mongo", callback);
- 			testing.assertEquals(parsedTickets[1], countTickets[1], "Didn't store all the parsed tickets in memcached", callback);
+ 			testing.assertEquals(countTickets[0], parsedTickets[0], "Didn't store all the parsed tickets in mongo", callback);
+ 			testing.assertEquals(countTickets[1], parsedTickets[1], "Didn't store all the parsed tickets in memcached", callback);
  			db.close (true, asyncCallback);
  		}
  		],
@@ -242,15 +244,14 @@ var ATTicketAvail = require('../../../lib/services/at-ticket-avail.js').ATTicket
  	);
  }
 
- exports.test = function(callback) {
+exports.test = function(callback) {
 	testing.run({
 		testTicketAvailParser: testTicketAvailParser
 	}, 100000, callback);
 }
 
  // start tests if invoked directly
-if (__filename == process.argv[1])
-{
+if (__filename == process.argv[1]) {
     exports.test(testing.show);
 }
 

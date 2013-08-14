@@ -15,21 +15,14 @@ var log = require('../../../lib/util/log.js');
 var util = require('../../../lib/util/util.js').util;
 var async = require('async');
 
-/**
- * Constants.
- */
+//constants
 process.title = 'update-tickets';
-/**
- * Process uncaught exceptions.
- */
+//process uncaught exceptions.
 process.on('uncaughtException', function(err) {
 	log.error("We found an uncaught exception.");
 	log.error(err.stack);
 });
-
-/**
- * ----SCRIPT STARTS HERE----
- */
+//script starts here
 var languages = JSON.parse(fs.readFileSync(path.resolve(__dirname, "languages.json")));
 var destinations = JSON.parse(fs.readFileSync(path.resolve(__dirname, "destinations.json")));
 var queryParameters = {
@@ -40,7 +33,6 @@ var date = new Date();
 queryParameters["DateFrom_date"] = util.atlasDate(date); 
 date.setDate(date.getDate() + 7);
 queryParameters["DateTo_date"] = util.atlasDate(date); 
-//Parse the tickets
 //Build the stream
 var stream = {};
 destinations.forEach(function(destination) {
@@ -53,6 +45,7 @@ destinations.forEach(function(destination) {
 		};
 	});
 });
+//parse the tickets in parallel
 async.parallel (stream, function(error, results) {
 	if (error) {
 		log.error ("Update tickets produced an error: " + JSON.stringify(error));
