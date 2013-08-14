@@ -54,33 +54,19 @@ var testing = require('testing');
 	 			return;
 	 		}
 	 		log.info("Received " + dataReceived.length + " tickets for " + destinationCode + " in " + language);
-			//update databases
-			async.parallel([
-				function (callback) {
-					updateMongo(dataReceived, callback);
-				},
-				function (callback) {
-					updateMemcache(dataReceived, callback);
-				}],
-				//Callback from parallel
-				function (error, results) {
-					if (error) {
-						log.error('Error returned while updating DBs: ' + JSON.stringify(error));
-	 					callback(error);
-	 					return;
-					}
-					log.info("Databases updated correctly");
-					callback(error, results);
+			//update mongo
+			updateMongo(dataReceived, function (error, parsedTickets) {
+				if (error) {
+					log.error('Error returned while updating Mongo: ' + JSON.stringify(error));
+ 					callback(error);
+ 					return;
 				}
-			);
+				log.info("Mongo updated correctly");
+				callback(error, parsedTickets);
+			});
 	 	});
 	}
 
-	/**
-	 * Update mongodb
-	 * dataReceived: data received from ATTicketAvail
-	 * callback(error,results): callback with the results of the updating
-	 */
 	function updateMongo(dataReceived, callback) {
 		var server = new mongo.Server("127.0.0.1", mongo.Connection.DEFAULT_PORT, {});
 		log.info("db listening on port: " + mongo.Connection.DEFAULT_PORT);
@@ -101,8 +87,7 @@ var testing = require('testing');
 			//perform update
 			function (collection, callback) {
 				//browse the tickets, update the db
-				var totalTickets = dataReceived.length;
-				var countParsedTickets = 0;
+				var countTickets = 0;
 				dataReceived.forEach(function(ticket, index) {
 					//Decapitalize ticket keys
 					ticket = util.decapitalizeKeys(ticket);
@@ -110,8 +95,7 @@ var testing = require('testing');
 					var setItem = {
 						code: ticket['code'],
 						currencyCode: ticket['currencyCode'],
-						destinationCode: destinationCode,
-						lastUpdated: new Date()
+						destinationCode: destinationCode
 					};
 					setItem["name."+language] = ticket.name;
 					var unsetItem ={
@@ -124,52 +108,57 @@ var testing = require('testing');
 					pushItem["imageList"] = {'$each': ticket["imageList"]};
 					pushItem["availableModalityList"] = {'$each': ticket["availableModalityList"]};
 					pushItem["descriptionList."+language] = {'$each': ticket["descriptionList"]};
-					//Set and unset first, then push
-					async.series([
+					//Find the item, reuse the id, and update it
+					async.waterfall([
+						//find the item
 						function (callback) {
+							collection.findOne({destinationCode: destinationCode, code:ticket.code}, function(error, retrievedTicket) {
+								callback(error, retrievedTicket)
+							});
+						},
+						//set and unset
+						function (retrievedTicket, callback) {
+							setItem["id"] = retrievedTicket ? retrievedTicket.id : util.randomString(util.mongoIdLength);
+							setItem["created"] = retrievedTicket ? retrievedTicket.created : new Date();
+							setItem["lastUpdated"] = retrievedTicket ? new Date : setItem["created"];
+
 							collection.update({code: ticket['code']},
 								{'$set': setItem, '$unset': unsetItem},
-								{upsert: true}, callback);
+								{upsert: true}, function(error) {
+									callback (error);
+								});
 						},
+						//push
 						function (callback) {
 							collection.update({code: ticket['code']},
 								{'$push': pushItem},
 								{upsert: true}, callback);
 						}],
-						//callback for series
+						//callback for inner waterfall
 						function (error, result) {
 							if (error) {
 								log.error ("Error while updating mongo");
 								callback(error);
 								return;
 							}
+							countTickets++;
 							//Update success, check if finished
-							countParsedTickets++;
-							if (countParsedTickets == totalTickets){
+							if (dataReceived.length == countTickets) {
+								log.info("updateMongo success. Close and callback")
 								//close and callback
 								db.close(true, function(error) {
-									callback (error, countParsedTickets);
+									callback (error, dataReceived.length);
 								});
 							}
 						}
 					);
 				});
 			}],
-			//Callback from waterfall
+			//Callback from main waterfall
 			function (error, parsedTickets) {
 				callback (error, parsedTickets);
 			}
 		);
-	}
-
-	/**
-	 * Update memcahe
-	 * dataReceived: data received from ATTicketAvail
-	 * callback(error,results): callback with the results of the updating
-	 */
-	function updateMemcache(dataReceived, callback){
-		//so far, so good
-		callback(null,0);
 	}
 
 	return self;
@@ -203,7 +192,7 @@ function testTicketAvailParser(callback) {
  				asyncCallback (error, collection);
  			});
  		},
- 		//Call parseTickets
+ 		//Call parseTickets with ENG
  		function (collection, asyncCallback) {
  			var queryParameters = {
 		 		PaginationData_itemsPerPage: "2000",
@@ -211,27 +200,57 @@ function testTicketAvailParser(callback) {
 		 		Destination_code: "BCN"
 		 	};
 		 	var ticketAvailParser = new exports.TicketAvailParser(queryParameters, /*testing*/ true);
-		 	ticketAvailParser.parseTickets(function (error, parsedTickets) {
-		 		log.info("callback from parseTickets");
+		 	ticketAvailParser.parseTickets(function (error, parsedTicketsENG) {
+		 		log.info("callback from parseTicketsENG");
+		 		var parsedTickets = {ENG: parsedTicketsENG};
 		 		asyncCallback (error, collection, parsedTickets);
 		 	});
  		},
- 		//Count tickets
+ 		//Call parseTickets with CAS
  		function (collection, parsedTickets, asyncCallback) {
- 			log.info("entered count");
+ 			var queryParameters = {
+		 		PaginationData_itemsPerPage: "2000",
+		 		Language: "CAS",
+		 		Destination_code: "BCN"
+		 	};
+		 	var ticketAvailParser = new exports.TicketAvailParser(queryParameters, /*testing*/ true);
+		 	ticketAvailParser.parseTickets(function (error, parsedTicketsCAS) {
+		 		log.info("callback from parseTicketsCAS");
+		 		parsedTickets["CAS"] = parsedTicketsCAS;
+		 		asyncCallback (error, collection, parsedTickets);
+		 	});
+ 		},
+ 		//Count tickets ENG
+ 		function (collection, parsedTickets, asyncCallback) {
  			var countQuery = {};
 			countQuery["destinationCode"] = "BCN";
 			countQuery["name.ENG"] = {"$exists": true};
 			countQuery["descriptionList.ENG"] = {"$exists": true};
-			collection.count(countQuery, function (error, mongoCount) {
-				asyncCallback (error, parsedTickets, [mongoCount, 0]);
+			collection.count(countQuery, function (error, mongoCountENG) {
+				var mongoCount = {ENG: mongoCountENG}
+				asyncCallback (error, collection, parsedTickets, mongoCount);
+			});
+ 		},
+ 		//Count tickets CAS
+ 		function (collection, parsedTickets, mongoCount, asyncCallback) {
+ 			var countQuery = {};
+			countQuery["destinationCode"] = "BCN";
+			countQuery["name.CAS"] = {"$exists": true};
+			countQuery["descriptionList.CAS"] = {"$exists": true};
+			collection.count(countQuery, function (error, mongoCountCAS) {
+				mongoCount["CAS"] = mongoCountCAS;
+				asyncCallback (error, parsedTickets, mongoCount);
 			});
  		},
  		//perform tests and close db
- 		function (parsedTickets, countTickets, asyncCallback) {
+ 		function (parsedTickets, mongoCount, asyncCallback) {
  			log.info("entered last step");
- 			testing.assertEquals(countTickets[0], parsedTickets[0], "Didn't store all the parsed tickets in mongo", callback);
- 			testing.assertEquals(countTickets[1], parsedTickets[1], "Didn't store all the parsed tickets in memcached", callback);
+ 			log.info("parsedTickets: " + JSON.stringify(parsedTickets));
+ 			log.info("mongoCount: " + JSON.stringify(mongoCount));
+ 			for (var key in parsedTickets) {
+ 				testing.assertEquals(mongoCount[key], parsedTickets[key], "Didn't store all the parsed tickets in mongo for " + key, callback);
+ 			}
+ 			//testing.assertEquals(countTickets[1], parsedTickets[1], "Didn't store all the parsed tickets in memcached", callback);
  			db.close (true, asyncCallback);
  		}
  		],

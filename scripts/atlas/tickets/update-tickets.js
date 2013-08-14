@@ -52,7 +52,7 @@ async.parallel (stream, function(error, results) {
 		process.exit(1);
 	}
 	for (var key in results) {
-		log.info("Parsed tickets in " + key + " - Mongo: " + results[key][0] + " - Memcached: " + results[key][1]);
+		log.info("Parsed tickets in " + key + " - Mongo: " + results[key]);
 	}
 	process.exit(0);
 });
