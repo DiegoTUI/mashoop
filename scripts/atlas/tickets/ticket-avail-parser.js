@@ -120,7 +120,8 @@ var testing = require('testing');
 						function (retrievedTicket, callback) {
 							setItem["id"] = retrievedTicket ? retrievedTicket.id : util.randomString(util.mongoIdLength);
 							setItem["created"] = retrievedTicket ? retrievedTicket.created : new Date();
-							setItem["lastUpdated"] = retrievedTicket ? new Date() : setItem["created"];
+							setItem["lastUpdated"] = retrievedTicket ? new Date : setItem["created"];
+
 							collection.update({code: ticket['code']},
 								{'$set': setItem, '$unset': unsetItem},
 								{upsert: true}, function(error) {
