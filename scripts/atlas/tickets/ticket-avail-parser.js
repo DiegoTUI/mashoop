@@ -143,7 +143,7 @@ var testing = require('testing');
 								callback(error);
 								return;
 							}
-							countTickets++:
+							countTickets++;
 							//Update success, check if finished
 							if (dataReceived.length == countTickets) {
 								log.info("updateMongo success. Close and callback")
