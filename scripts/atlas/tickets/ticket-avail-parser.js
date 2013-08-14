@@ -87,6 +87,7 @@ var testing = require('testing');
 			//perform update
 			function (collection, callback) {
 				//browse the tickets, update the db
+				var countTickets = 0;
 				dataReceived.forEach(function(ticket, index) {
 					//Decapitalize ticket keys
 					ticket = util.decapitalizeKeys(ticket);
@@ -142,8 +143,10 @@ var testing = require('testing');
 								callback(error);
 								return;
 							}
+							countTickets++:
 							//Update success, check if finished
-							if (dataReceived.length == (index+1)){
+							if (dataReceived.length == countTickets) {
+								log.info("updateMongo success. Close and callback")
 								//close and callback
 								db.close(true, function(error) {
 									callback (error, dataReceived.length);
