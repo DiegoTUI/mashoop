@@ -4,7 +4,6 @@ var async = require('async');
 var log = require('../../../lib/util/log.js');
 var util = require('../../../lib/util/util.js').util;
 var mongo = require('mongodb');
-var memcache = require('memcache');
 var ATTicketAvail = require('../../../lib/services/at-ticket-avail.js').ATTicketAvail;
 var testing = require('testing');
 
@@ -18,8 +17,8 @@ var testing = require('testing');
  	// self-reference
 	var self = this;
 	//some handy vars
-	var destinationCode = queryParameters.Destination_code;
-	var language = queryParameters.Language;
+	var destinationCode = queryParameters.destination;
+	var language = queryParameters.language;
 	//Description map to parse the response
 	var ticketAvailMap = [
 		{'code': 'TicketInfo.Code'},
@@ -45,7 +44,7 @@ var testing = require('testing');
 	 * callback: a function (error, result) to call back when the parsing has finished
 	 */
 	self.parseTickets = function (callback) {
-	 	var ticketAvailRQ = new ATTicketAvail(queryParameters, ticketAvailMap, "ServiceTicket");
+	 	var ticketAvailRQ = new ATTicketAvail(queryParameters, ticketAvailMap, "ServiceTicket", /*forceCall*/ true);
 	 	log.info("Calling ATLAS for " + destinationCode + " in " + language);
 	 	ticketAvailRQ.sendRequest(function (error, dataReceived) {
 	 		if (error) {
@@ -69,7 +68,6 @@ var testing = require('testing');
 
 	function updateMongo(dataReceived, callback) {
 		var server = new mongo.Server("127.0.0.1", mongo.Connection.DEFAULT_PORT, {});
-		log.info("db listening on port: " + mongo.Connection.DEFAULT_PORT);
 		var dbname = testing ? "mashooptest" : "mashoop"
 		var db = new mongo.Db(dbname, server, {w:1});
 		//update mongo in waterfall
@@ -168,40 +166,34 @@ var testing = require('testing');
  ************ UNIT TESTS ***********
  ***********************************/
 function testTicketAvailParser(callback) {
- 	//delete test mongo and memcache
+ 	//delete test mongo
  	var db = new mongo.Db('mashooptest', new mongo.Server("127.0.0.1", mongo.Connection.DEFAULT_PORT, {}), {w:1});
  	async.waterfall ([
  		//Open db
  		function(asyncCallback) {
- 			log.info("about to open db");
  			db.open(function(error,db){
- 				log.info("opened db");
  				asyncCallback(error, db);
  			});
  		},
  		//Open collection
  		function (db, asyncCallback) {
- 			log.info("db: " + db);
  			db.collection('tickets', asyncCallback);
  		},
  		//Remove all elements from collection
  		function (collection, asyncCallback) {
- 			log.info("collection: " + collection);
  			collection.remove({}, function (error, numberRemoved){
- 				log.info("removed: " + numberRemoved + ". Error: " + error);
  				asyncCallback (error, collection);
  			});
  		},
  		//Call parseTickets with ENG
  		function (collection, asyncCallback) {
  			var queryParameters = {
-		 		PaginationData_itemsPerPage: "2000",
-		 		Language: "ENG",
-		 		Destination_code: "BCN"
+		 		pagesize: "2000",
+		 		language: "ENG",
+		 		destination: "BCN"
 		 	};
 		 	var ticketAvailParser = new exports.TicketAvailParser(queryParameters, /*testing*/ true);
 		 	ticketAvailParser.parseTickets(function (error, parsedTicketsENG) {
-		 		log.info("callback from parseTicketsENG");
 		 		var parsedTickets = {ENG: parsedTicketsENG};
 		 		asyncCallback (error, collection, parsedTickets);
 		 	});
@@ -209,13 +201,12 @@ function testTicketAvailParser(callback) {
  		//Call parseTickets with CAS
  		function (collection, parsedTickets, asyncCallback) {
  			var queryParameters = {
-		 		PaginationData_itemsPerPage: "2000",
-		 		Language: "CAS",
-		 		Destination_code: "BCN"
+		 		pagesize: "2000",
+		 		language: "CAS",
+		 		destination: "BCN"
 		 	};
 		 	var ticketAvailParser = new exports.TicketAvailParser(queryParameters, /*testing*/ true);
 		 	ticketAvailParser.parseTickets(function (error, parsedTicketsCAS) {
-		 		log.info("callback from parseTicketsCAS");
 		 		parsedTickets["CAS"] = parsedTicketsCAS;
 		 		asyncCallback (error, collection, parsedTickets);
 		 	});
@@ -244,19 +235,14 @@ function testTicketAvailParser(callback) {
  		},
  		//perform tests and close db
  		function (parsedTickets, mongoCount, asyncCallback) {
- 			log.info("entered last step");
- 			log.info("parsedTickets: " + JSON.stringify(parsedTickets));
- 			log.info("mongoCount: " + JSON.stringify(mongoCount));
  			for (var key in parsedTickets) {
  				testing.assertEquals(mongoCount[key], parsedTickets[key], "Didn't store all the parsed tickets in mongo for " + key, callback);
  			}
- 			//testing.assertEquals(countTickets[1], parsedTickets[1], "Didn't store all the parsed tickets in memcached", callback);
  			db.close (true, asyncCallback);
  		}
  		],
  		//callback from waterfall
  		function (error) {
- 			log.info("Entered test waterfall callback")
  			testing.assertEquals(error, null, "An error occured in the waterfal test process: " + JSON.stringify(error), callback);
  			testing.success(callback);
  		}
