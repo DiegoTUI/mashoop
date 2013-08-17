@@ -115,7 +115,7 @@ exports.TicketAvailParser = function (queryParameters) {
 			},
 			//set and unset
 			function (retrievedTicket, callback) {
-				setItem["id"] = retrievedTicket ? retrievedTicket.id : util.randomString(util.mongoIdLength);
+				setItem["id"] = retrievedTicket ? retrievedTicket.id : util.randomString(config.mongoIdLength);
 				setItem["created"] = retrievedTicket ? retrievedTicket.created : new Date();
 				setItem["lastUpdated"] = retrievedTicket ? new Date : setItem["created"];
 
