@@ -12,7 +12,7 @@ var TicketAvailParser = require("./ticket-avail-parser.js").TicketAvailParser;
 var fs = require('fs');
 var path = require('path');
 var log = require('../../../lib/util/log.js');
-var util = require('../../../lib/util/util.js').util;
+var util = require('../../../lib/util/util.js');
 var async = require('async');
 
 //constants
