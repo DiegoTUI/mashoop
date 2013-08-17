@@ -11,14 +11,14 @@ var testing = require('testing');
  * A parser for TicketAvailRQ. Connects to Atlas, makes a query,
  * and stores the results in the different databases.
  * queryParameters: the parameters of the query to be launched
- * testing: is testing mode
  */
- exports.TicketAvailParser = function (queryParameters, testing) {
- 	// self-reference
+exports.TicketAvailParser = function (queryParameters) {
+	// self-reference
 	var self = this;
 	//some handy vars
 	var destinationCode = queryParameters.destination;
 	var language = queryParameters.language;
+	var ticketCollection = null;
 	//Description map to parse the response
 	var ticketAvailMap = [
 		{'code': 'TicketInfo.Code'},
@@ -44,6 +44,19 @@ var testing = require('testing');
 	 * callback: a function (error, result) to call back when the parsing has finished
 	 */
 	self.parseTickets = function (callback) {
+		db.addCallback(function(error, result) {
+			if (error) {
+				return callback(error);
+			}
+			ticketCollection = db.getCollection('tickets');
+			readTickets(callback);
+		});
+	}
+
+	/**
+	 * Read tickets from Atlas.
+	 */
+	function readTickets(callback) {
 	 	var ticketAvailRQ = new ATTicketAvail(queryParameters, ticketAvailMap, "ServiceTicket", /*forceCall*/ true);
 	 	log.info("Calling ATLAS for " + destinationCode + " in " + language);
 	 	ticketAvailRQ.sendRequest(function (error, dataReceived) {
@@ -67,187 +80,125 @@ var testing = require('testing');
 	}
 
 	function updateMongo(dataReceived, callback) {
-		var server = new mongo.Server("127.0.0.1", mongo.Connection.DEFAULT_PORT, {});
-		var dbname = testing ? "mashooptest" : "mashoop"
-		var db = new mongo.Db(dbname, server, {w:1});
-		//update mongo in waterfall
-		async.waterfall ([
-			//Open db
+		//browse the tickets, update the db
+		var countTickets = 0;
+		dataReceived.forEach(function(ticket, index) {
+			//Decapitalize ticket keys
+			ticket = util.decapitalizeKeys(ticket);
+			//Items to set and unset
+			var setItem = {
+				code: ticket['code'],
+				currencyCode: ticket['currencyCode'],
+				destinationCode: destinationCode
+			};
+			setItem["name."+language] = ticket.name;
+			var unsetItem ={
+				imageList: 1,
+				availableModalityList: 1
+			};
+			unsetItem["descriptionList."+language] = 1;
+			//Items to push
+			var pushItem = {
+				imageList: {'$each': ticket["imageList"]},
+				availableModalityList: {'$each': ticket["availableModalityList"]},
+			};
+			pushItem["descriptionList." + language] = {'$each': ticket["descriptionList"]};
+			//Find the item, reuse the id, and update it
+			async.waterfall([
+			//find the item
 			function (callback) {
-				db.open(function(error, db) {
-					callback(error, db);
+				ticketCollection.findOne({destinationCode: destinationCode, code:ticket.code}, function(error, retrievedTicket) {
+					callback(error, retrievedTicket)
 				});
 			},
-			//open collection
-			function (db, callback) {
-				db.collection('tickets', callback);
-			},
-			//perform update
-			function (collection, callback) {
-				//browse the tickets, update the db
-				var countTickets = 0;
-				dataReceived.forEach(function(ticket, index) {
-					//Decapitalize ticket keys
-					ticket = util.decapitalizeKeys(ticket);
-					//Items to set and unset
-					var setItem = {
-						code: ticket['code'],
-						currencyCode: ticket['currencyCode'],
-						destinationCode: destinationCode
-					};
-					setItem["name."+language] = ticket.name;
-					var unsetItem ={
-						imageList: 1,
-						availableModalityList: 1
-					};
-					unsetItem["descriptionList."+language] = 1;
-					//Items to push
-					var pushItem = {};
-					pushItem["imageList"] = {'$each': ticket["imageList"]};
-					pushItem["availableModalityList"] = {'$each': ticket["availableModalityList"]};
-					pushItem["descriptionList."+language] = {'$each': ticket["descriptionList"]};
-					//Find the item, reuse the id, and update it
-					async.waterfall([
-						//find the item
-						function (callback) {
-							collection.findOne({destinationCode: destinationCode, code:ticket.code}, function(error, retrievedTicket) {
-								callback(error, retrievedTicket)
-							});
-						},
-						//set and unset
-						function (retrievedTicket, callback) {
-							setItem["id"] = retrievedTicket ? retrievedTicket.id : util.randomString(util.mongoIdLength);
-							setItem["created"] = retrievedTicket ? retrievedTicket.created : new Date();
-							setItem["lastUpdated"] = retrievedTicket ? new Date : setItem["created"];
+			//set and unset
+			function (retrievedTicket, callback) {
+				setItem["id"] = retrievedTicket ? retrievedTicket.id : util.randomString(util.mongoIdLength);
+				setItem["created"] = retrievedTicket ? retrievedTicket.created : new Date();
+				setItem["lastUpdated"] = retrievedTicket ? new Date : setItem["created"];
 
-							collection.update({code: ticket['code']},
-								{'$set': setItem, '$unset': unsetItem},
-								{upsert: true}, function(error) {
-									callback (error);
-								});
-						},
-						//push
-						function (callback) {
-							collection.update({code: ticket['code']},
-								{'$push': pushItem},
-								{upsert: true}, callback);
-						}],
-						//callback for inner waterfall
-						function (error, result) {
-							if (error) {
-								log.error ("Error while updating mongo");
-								callback(error);
-								return;
-							}
-							countTickets++;
-							//Update success, check if finished
-							if (dataReceived.length == countTickets) {
-								log.info("updateMongo success. Close and callback")
-								//close and callback
-								db.close(true, function(error) {
-									callback (error, dataReceived.length);
-								});
-							}
-						}
-					);
+				ticketCollection.update({code: ticket['code']},
+				{'$set': setItem, '$unset': unsetItem},
+				{upsert: true}, function(error) {
+					callback (error);
 				});
+			},
+			//push
+			function (callback) {
+				ticketCollection.update({code: ticket['code']},
+				{'$push': pushItem},
+				{upsert: true}, callback);
 			}],
-			//Callback from main waterfall
-			function (error, parsedTickets) {
-				callback (error, parsedTickets);
+			//callback for inner waterfall
+			function (error, result) {
+				if (error) {
+					log.error ("Error while updating mongo");
+					callback(error);
+					return;
+				}
+				countTickets++;
+				//Update success, check if finished
+				if (dataReceived.length == countTickets) {
+					log.info("updateMongo success. Close and callback")
+					//close and callback
+					db.close(true, function(error) {
+						callback (error, dataReceived.length);
+					});
+				}
 			}
-		);
+			);
+		});
 	}
 
 	return self;
- }
+}
 
- /***********************************
+/***********************************
  ************ UNIT TESTS ***********
  ***********************************/
 function testTicketAvailParser(callback) {
- 	//delete test mongo
- 	var db = new mongo.Db('mashooptest', new mongo.Server("127.0.0.1", mongo.Connection.DEFAULT_PORT, {}), {w:1});
- 	async.waterfall ([
- 		//Open db
- 		function(asyncCallback) {
- 			db.open(function(error,db){
- 				asyncCallback(error, db);
- 			});
- 		},
- 		//Open collection
- 		function (db, asyncCallback) {
- 			db.collection('tickets', asyncCallback);
- 		},
- 		//Remove all elements from collection
- 		function (collection, asyncCallback) {
- 			collection.remove({}, function (error, numberRemoved){
- 				asyncCallback (error, collection);
- 			});
- 		},
- 		//Call parseTickets with ENG
- 		function (collection, asyncCallback) {
- 			var queryParameters = {
-		 		pagesize: "2000",
-		 		language: "ENG",
-		 		destination: "BCN"
-		 	};
-		 	var ticketAvailParser = new exports.TicketAvailParser(queryParameters, /*testing*/ true);
-		 	ticketAvailParser.parseTickets(function (error, parsedTicketsENG) {
-		 		var parsedTickets = {ENG: parsedTicketsENG};
-		 		asyncCallback (error, collection, parsedTickets);
-		 	});
- 		},
- 		//Call parseTickets with CAS
- 		function (collection, parsedTickets, asyncCallback) {
- 			var queryParameters = {
-		 		pagesize: "2000",
-		 		language: "CAS",
-		 		destination: "BCN"
-		 	};
-		 	var ticketAvailParser = new exports.TicketAvailParser(queryParameters, /*testing*/ true);
-		 	ticketAvailParser.parseTickets(function (error, parsedTicketsCAS) {
-		 		parsedTickets["CAS"] = parsedTicketsCAS;
-		 		asyncCallback (error, collection, parsedTickets);
-		 	});
- 		},
- 		//Count tickets ENG
- 		function (collection, parsedTickets, asyncCallback) {
- 			var countQuery = {};
-			countQuery["destinationCode"] = "BCN";
-			countQuery["name.ENG"] = {"$exists": true};
-			countQuery["descriptionList.ENG"] = {"$exists": true};
-			collection.count(countQuery, function (error, mongoCountENG) {
-				var mongoCount = {ENG: mongoCountENG}
-				asyncCallback (error, collection, parsedTickets, mongoCount);
+	config.mongoConnection = 'mongodb://127.0.0.1:27017/mashoop';
+		db.reconnect(function() {
+		var ticketCollection = db.getCollection('tickets');
+		ticketCollection.remove({}, function(error, result) {
+			var queryParameters = {
+				pagesize: "2000",
+				language: "ENG",
+				destination: "BCN"
+			};
+			var ticketAvailParser = new exports.TicketAvailParser(queryParameters);
+			ticketAvailParser.parseTickets(function (error, parsedTicketsENG) {
+				var parsedTickets = {ENG: parsedTicketsENG};
+				var queryParameters = {
+					pagesize: "2000",
+					language: "CAS",
+					destination: "BCN"
+				};
+				var ticketAvailParser = new exports.TicketAvailParser(queryParameters, /*testing*/ true);
+				ticketAvailParser.parseTickets(function (error, parsedTicketsCAS) {
+					parsedTickets["CAS"] = parsedTicketsCAS;
+					var countQuery = {};
+					countQuery["destinationCode"] = "BCN";
+					countQuery["name.ENG"] = {"$exists": true};
+					countQuery["descriptionList.ENG"] = {"$exists": true};
+					collection.count(countQuery, function (error, mongoCountENG) {
+						var mongoCount = {ENG: mongoCountENG}
+						var countQuery = {};
+						countQuery["destinationCode"] = "BCN";
+						countQuery["name.CAS"] = {"$exists": true};
+						countQuery["descriptionList.CAS"] = {"$exists": true};
+						collection.count(countQuery, function (error, mongoCountCAS) {
+							mongoCount["CAS"] = mongoCountCAS;
+							for (var key in parsedTickets) {
+								testing.assertEquals(mongoCount[key], parsedTickets[key], "Didn't store all the parsed tickets in mongo for " + key, callback);
+							}
+						});
+					});
+				});
 			});
- 		},
- 		//Count tickets CAS
- 		function (collection, parsedTickets, mongoCount, asyncCallback) {
- 			var countQuery = {};
-			countQuery["destinationCode"] = "BCN";
-			countQuery["name.CAS"] = {"$exists": true};
-			countQuery["descriptionList.CAS"] = {"$exists": true};
-			collection.count(countQuery, function (error, mongoCountCAS) {
-				mongoCount["CAS"] = mongoCountCAS;
-				asyncCallback (error, parsedTickets, mongoCount);
-			});
- 		},
- 		//perform tests and close db
- 		function (parsedTickets, mongoCount, asyncCallback) {
- 			for (var key in parsedTickets) {
- 				testing.assertEquals(mongoCount[key], parsedTickets[key], "Didn't store all the parsed tickets in mongo for " + key, callback);
- 			}
- 			db.close (true, asyncCallback);
- 		}
- 		],
- 		//callback from waterfall
- 		function (error) {
- 			testing.assertEquals(error, null, "An error occured in the waterfal test process: " + JSON.stringify(error), callback);
- 			testing.success(callback);
- 		}
- 	);
- }
+		});
+	});
+}
 
 exports.test = function(callback) {
 	testing.run({
