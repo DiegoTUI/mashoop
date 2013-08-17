@@ -2,6 +2,8 @@
 //requires
 var async = require('async');
 var log = require('../../../lib/util/log.js');
+var config = require('../../../lib/config.js');
+var db = require('../../../lib/util/db.js');
 var util = require('../../../lib/util/util.js').util;
 var mongo = require('mongodb');
 var ATTicketAvail = require('../../../lib/services/at-ticket-avail.js').ATTicketAvail;
@@ -181,13 +183,13 @@ function testTicketAvailParser(callback) {
 					countQuery["destinationCode"] = "BCN";
 					countQuery["name.ENG"] = {"$exists": true};
 					countQuery["descriptionList.ENG"] = {"$exists": true};
-					collection.count(countQuery, function (error, mongoCountENG) {
+					ticketCollection.count(countQuery, function (error, mongoCountENG) {
 						var mongoCount = {ENG: mongoCountENG}
 						var countQuery = {};
 						countQuery["destinationCode"] = "BCN";
 						countQuery["name.CAS"] = {"$exists": true};
 						countQuery["descriptionList.CAS"] = {"$exists": true};
-						collection.count(countQuery, function (error, mongoCountCAS) {
+						ticketCollection.count(countQuery, function (error, mongoCountCAS) {
 							mongoCount["CAS"] = mongoCountCAS;
 							for (var key in parsedTickets) {
 								testing.assertEquals(mongoCount[key], parsedTickets[key], "Didn't store all the parsed tickets in mongo for " + key, callback);
