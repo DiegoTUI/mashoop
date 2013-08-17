@@ -12,7 +12,7 @@ var TicketAvailParser = require("./ticket-avail-parser.js").TicketAvailParser;
 var fs = require('fs');
 var path = require('path');
 var log = require('../../../lib/util/log.js');
-var util = require('../../../lib/util/util.js');
+var core = require('../../../lib/util/core.js');
 var async = require('async');
 
 //constants
@@ -30,9 +30,9 @@ var queryParameters = {
 };
 //set the dates
 var date = new Date();
-queryParameters["DateFrom_date"] = util.atlasDate(date); 
+queryParameters["DateFrom_date"] = core.atlasDate(date); 
 date.setDate(date.getDate() + 7);
-queryParameters["DateTo_date"] = util.atlasDate(date); 
+queryParameters["DateTo_date"] = core.atlasDate(date); 
 //Build the stream
 var stream = {};
 destinations.forEach(function(destination) {

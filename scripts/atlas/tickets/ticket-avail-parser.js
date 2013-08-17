@@ -4,7 +4,7 @@ var async = require('async');
 var log = require('../../../lib/util/log.js');
 var config = require('../../../lib/config.js');
 var db = require('../../../lib/db.js');
-var util = require('../../../lib/util/util.js');
+var core = require('../../../lib/util/core.js');
 var mongo = require('mongodb');
 var ATTicketAvail = require('../../../lib/services/at-ticket-avail.js').ATTicketAvail;
 var testing = require('testing');
@@ -86,7 +86,7 @@ exports.TicketAvailParser = function (queryParameters) {
 		var countTickets = 0;
 		dataReceived.forEach(function(ticket, index) {
 			//Decapitalize ticket keys
-			ticket = util.decapitalizeKeys(ticket);
+			ticket = core.decapitalizeKeys(ticket);
 			//Items to set and unset
 			var setItem = {
 				code: ticket['code'],
@@ -115,7 +115,7 @@ exports.TicketAvailParser = function (queryParameters) {
 			},
 			//set and unset
 			function (retrievedTicket, callback) {
-				setItem["id"] = retrievedTicket ? retrievedTicket.id : util.randomString(config.mongoIdLength);
+				setItem["id"] = retrievedTicket ? retrievedTicket.id : core.randomString(config.mongoIdLength);
 				setItem["created"] = retrievedTicket ? retrievedTicket.created : new Date();
 				setItem["lastUpdated"] = retrievedTicket ? new Date : setItem["created"];
 
