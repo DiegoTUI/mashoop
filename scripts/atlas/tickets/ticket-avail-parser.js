@@ -135,20 +135,15 @@ exports.TicketAvailParser = function (queryParameters) {
 			function (error, result) {
 				if (error) {
 					log.error ("Error while updating mongo");
-					callback(error);
-					return;
+					return callback(error);
 				}
 				countTickets++;
 				//Update success, check if finished
 				if (dataReceived.length == countTickets) {
-					log.info("updateMongo success. Close and callback")
-					//close and callback
-					db.close(true, function(error) {
-						callback (error, dataReceived.length);
-					});
+					log.info("updateMongo success. Close and callback");
 				}
-			}
-			);
+				callback (error, dataReceived.length);
+			});
 		});
 	}
 
@@ -159,7 +154,7 @@ exports.TicketAvailParser = function (queryParameters) {
  ************ UNIT TESTS ***********
  ***********************************/
 function testTicketAvailParser(callback) {
-	config.mongoConnection = 'mongodb://127.0.0.1:27017/mashoop';
+	config.mongoConnection = 'mongodb://127.0.0.1:27017/mashooptest';
 		db.reconnect(function() {
 		var ticketCollection = db.getCollection('tickets');
 		ticketCollection.remove({}, function(error, result) {
@@ -176,7 +171,7 @@ function testTicketAvailParser(callback) {
 					language: "CAS",
 					destination: "BCN"
 				};
-				var ticketAvailParser = new exports.TicketAvailParser(queryParameters, /*testing*/ true);
+				var ticketAvailParser = new exports.TicketAvailParser(queryParameters);
 				ticketAvailParser.parseTickets(function (error, parsedTicketsCAS) {
 					parsedTickets["CAS"] = parsedTicketsCAS;
 					var countQuery = {};
