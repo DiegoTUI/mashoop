@@ -171,6 +171,9 @@ function testTicketAvailParser(callback) {
 	});
 }
 
+/**
+ * Get a function to parse tickets and count them, then compare them.
+ */
 function getParserCounter(ticketCollection, language) {
 	return function(callback) {
 		var queryParameters = {
