@@ -5,7 +5,7 @@ var log = require('../../../lib/util/log.js');
 var config = require('../../../lib/config.js');
 var db = require('../../../lib/db.js');
 var core = require('../../../lib/util/core.js');
-var mongo = require('mongodb');
+//var MongoClient = require('mongodb').;
 var ATTicketAvail = require('../../../lib/services/at-ticket-avail.js').ATTicketAvail;
 var testing = require('testing');
 
@@ -50,7 +50,7 @@ exports.TicketAvailParser = function (queryParameters) {
 			if (error) {
 				return callback(error);
 			}
-			ticketCollection = db.getCollection('tickets');
+			ticketCollection = result.collection('tickets');
 			readTickets(callback);
 		});
 	}
@@ -117,8 +117,7 @@ exports.TicketAvailParser = function (queryParameters) {
 			function (retrievedTicket, callback) {
 				setItem["id"] = retrievedTicket ? retrievedTicket.id : core.randomString(config.mongoIdLength);
 				setItem["created"] = retrievedTicket ? retrievedTicket.created : new Date();
-				setItem["lastUpdated"] = retrievedTicket ? new Date : setItem["created"];
-
+				setItem["lastUpdated"] = retrievedTicket ? new Date() : setItem["created"];
 				ticketCollection.update({code: ticket['code']},
 				{'$set': setItem, '$unset': unsetItem},
 				{upsert: true}, function(error) {
@@ -140,9 +139,8 @@ exports.TicketAvailParser = function (queryParameters) {
 				countTickets++;
 				//Update success, check if finished
 				if (dataReceived.length == countTickets) {
-					log.info("updateMongo success. Close and callback");
+					callback (error, dataReceived.length);
 				}
-				callback (error, dataReceived.length);
 			});
 		});
 	}
@@ -200,12 +198,18 @@ function getParserCounter(ticketCollection, language) {
 
 exports.test = function(callback) {
 	testing.run({
-		testTicketAvailParser: testTicketAvailParser
+		testTicketAvailParser: testTicketAvailParser,
+		close: db.close,
 	}, 100000, callback);
 }
 
  // start tests if invoked directly
 if (__filename == process.argv[1]) {
-    exports.test(testing.show);
+    exports.test(function(error, result) {
+    	db.close(function(error) {
+			log.info("db closed");
+			testing.show (error, result);
+		});
+    });
 }
 

@@ -25,21 +25,21 @@ process.on('uncaughtException', function(err) {
 //script starts here
 var languages = JSON.parse(fs.readFileSync(path.resolve(__dirname, "languages.json")));
 var destinations = JSON.parse(fs.readFileSync(path.resolve(__dirname, "destinations.json")));
-var queryParameters = {
- 	PaginationData_itemsPerPage: "2000"
-};
-//set the dates
-var date = new Date();
-queryParameters["DateFrom_date"] = core.atlasDate(date); 
-date.setDate(date.getDate() + 7);
-queryParameters["DateTo_date"] = core.atlasDate(date); 
 //Build the stream
 var stream = {};
 destinations.forEach(function(destination) {
 	languages.forEach(function(language) {
 		stream[destination + "." + language] = function (callback) {
-			queryParameters["Language"] = language;
-			queryParameters["Destination_code"] = destination;
+			var queryParameters = {
+			 	pagesize: "2000"
+			};
+			//set the dates
+			var date = new Date();
+			queryParameters["from"] = core.atlasDate(date); 
+			date.setDate(date.getDate() + 7);
+			queryParameters["to"] = core.atlasDate(date); 
+			queryParameters["language"] = language;
+			queryParameters["destination"] = destination;
 			var ticketAvailParser = new TicketAvailParser (queryParameters);
 			ticketAvailParser.parseTickets(callback);
 		};

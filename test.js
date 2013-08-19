@@ -7,6 +7,8 @@
 
 // requires
 var testing = require('testing');
+var db = require('./lib/db.js');
+var log = require('./lib/util/log.js');
 
 /**
  * Run all module tests.
@@ -25,7 +27,13 @@ exports.test = function(callback)
 			tests[path + "/" + file] = require('./' + path + '/' + file + '.js').test;
 		});
 	}
-	testing.run(tests, 100000, callback);
+	testing.run(tests, 100000, function(error, result) {
+		//close database
+		db.close(function(error) {
+			log.info("db closed");
+			callback (error, result);
+		});
+	});
 }
 
 // run tests if invoked directly
