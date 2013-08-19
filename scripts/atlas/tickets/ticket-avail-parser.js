@@ -5,7 +5,6 @@ var log = require('../../../lib/util/log.js');
 var config = require('../../../lib/config.js');
 var db = require('../../../lib/db.js');
 var core = require('../../../lib/util/core.js');
-//var MongoClient = require('mongodb').;
 var ATTicketAvail = require('../../../lib/services/at-ticket-avail.js').ATTicketAvail;
 var testing = require('testing');
 
