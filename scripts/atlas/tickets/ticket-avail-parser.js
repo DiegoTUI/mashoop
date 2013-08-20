@@ -197,18 +197,17 @@ function getParserCounter(ticketCollection, language) {
 
 exports.test = function(callback) {
 	testing.run({
-		testTicketAvailParser: testTicketAvailParser,
-		close: db.close,
-	}, 100000, callback);
+		testTicketAvailParser: testTicketAvailParser
+	}, 100000, function (error, result) {
+		db.close(function(err) {
+			log.info("closing mongo");
+			callback (error, result);
+		});
+	});
 }
 
- // start tests if invoked directly
+// start tests if invoked directly
 if (__filename == process.argv[1]) {
-    exports.test(function(error, result) {
-    	db.close(function(error) {
-			log.info("db closed");
-			testing.show (error, result);
-		});
-    });
+    exports.test(testing.show);
 }
 
