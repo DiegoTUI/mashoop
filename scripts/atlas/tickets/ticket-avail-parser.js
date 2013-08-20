@@ -5,7 +5,6 @@ var log = require('../../../lib/util/log.js');
 var config = require('../../../lib/config.js');
 var db = require('../../../lib/db.js');
 var core = require('../../../lib/util/core.js');
-//var MongoClient = require('mongodb').;
 var ATTicketAvail = require('../../../lib/services/at-ticket-avail.js').ATTicketAvail;
 var testing = require('testing');
 
@@ -154,65 +153,61 @@ exports.TicketAvailParser = function (queryParameters) {
 function testTicketAvailParser(callback) {
 	config.mongoConnection = 'mongodb://127.0.0.1:27017/mashooptest';
 	db.reconnect(function() {
-		log.info("reconnecting to mongodb://127.0.0.1:27017/mashooptest");
 		var ticketCollection = db.getCollection('tickets');
 		ticketCollection.remove({}, function(error, result) {
-			var queryParameters = {
-				pagesize: "2000",
-				language: "ENG",
-				destination: "BCN"
-			};
-			var ticketAvailParser = new exports.TicketAvailParser(queryParameters);
-			ticketAvailParser.parseTickets(function (error, parsedTicketsENG) {
-				var parsedTickets = {ENG: parsedTicketsENG};
-				var queryParameters = {
-					pagesize: "2000",
-					language: "CAS",
-					destination: "BCN"
-				};
-				var ticketAvailParser = new exports.TicketAvailParser(queryParameters);
-				ticketAvailParser.parseTickets(function (error, parsedTicketsCAS) {
-					parsedTickets["CAS"] = parsedTicketsCAS;
-					var countQuery = {};
-					countQuery["destinationCode"] = "BCN";
-					countQuery["name.ENG"] = {"$exists": true};
-					countQuery["descriptionList.ENG"] = {"$exists": true};
-					ticketCollection.count(countQuery, function (error, mongoCountENG) {
-						var mongoCount = {ENG: mongoCountENG}
-						var countQuery = {};
-						countQuery["destinationCode"] = "BCN";
-						countQuery["name.CAS"] = {"$exists": true};
-						countQuery["descriptionList.CAS"] = {"$exists": true};
-						ticketCollection.count(countQuery, function (error, mongoCountCAS) {
-							mongoCount["CAS"] = mongoCountCAS;
-							for (var key in parsedTickets) {
-								testing.assertEquals(mongoCount[key], parsedTickets[key], "Didn't store all the parsed tickets in mongo for " + key, callback);
-							}
-							testing.success(callback);
-						});
-					});
-				});
+			var languages = ['ENG', 'CAS'];
+			var series = {};
+			languages.forEach(function(language) {
+				series[language] = getParserCounter(ticketCollection, language);
+			});
+			async.series(series, function(error, result) {
+				testing.check(error, callback);
+				testing.success('Ticket avail parser success', callback);
 			});
 		});
 	});
 }
 
+/**
+ * Get a function to parse tickets and count them, then compare them.
+ */
+function getParserCounter(ticketCollection, language) {
+	return function(callback) {
+		var queryParameters = {
+			pagesize: '2000',
+			language: language,
+			destination: 'BCN'
+		};
+		var ticketAvailParser = new exports.TicketAvailParser(queryParameters);
+		ticketAvailParser.parseTickets(function (error, parsedTickets) {
+			testing.check(error, 'Could not parse tickets', callback);
+			var countQuery = {
+				destinationCode: 'BCN',
+			};
+			countQuery['name.' + language] =  {"$exists": true};
+			countQuery['descriptionList.' + language] = {"$exists": true};
+			ticketCollection.count(countQuery, function (error, mongoCount) {
+				testing.check(error, 'Could not count tickets', callback);
+				testing.assertEquals(mongoCount, parsedTickets, "Didn't store all the parsed tickets in mongo for " + language, callback);
+				callback(null, true);
+			});
+		});
+	};
+}
 
 exports.test = function(callback) {
 	testing.run({
-		testTicketAvailParser: testTicketAvailParser,
-	}, 100000, callback);
-}
-
- // start tests if invoked directly
-if (__filename == process.argv[1]) {
-    exports.test(function(error, result) {
-    	db.close(function(error) {
-			log.info("db closed");
-			testing.show (error, result);
+		testTicketAvailParser: testTicketAvailParser
+	}, 100000, function (error, result) {
+		db.close(function(err) {
+			log.info("closing mongo");
+			callback (error, result);
 		});
-    });
+	});
 }
 
-
+// start tests if invoked directly
+if (__filename == process.argv[1]) {
+    exports.test(testing.show);
+}
 
