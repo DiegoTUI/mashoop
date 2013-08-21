@@ -19,7 +19,7 @@ exports.test = function(callback)
 	files['lib/io'] = [ 'ajax', 'parametrized-string', 'xml-reader' ];
 	files['lib/services'] = [ 'at-ticket-avail', 'fs-venue-search', 'at-read-ticket-names'];
 	files['lib/util'] = [ 'core' ];
-	files['scripts/atlas/tickets'] = ['ticket-avail-parser'];
+	files['lib/batch'] = ['ticket-avail-parser'];
 	for (var path in files) {
 		files[path].forEach(function(file) {
 			tests[path + "/" + file] = require('./' + path + '/' + file + '.js').test;
