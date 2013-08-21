@@ -4,3 +4,4 @@ node_modules
 *credential*
 local-config.js
 *.log
+start-forever.sh
