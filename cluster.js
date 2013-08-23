@@ -21,13 +21,13 @@ if (cluster.isMaster) {
 		cluster.fork();
 	}
 	cluster.on('exit', function(worker, code, signal) {
-		log.info('worker ' + worker.process.pid + ' died');
+		log.debug('worker ' + worker.process.pid + ' died');
 		cluster.fork();
 	});
 }
 else {
 	// start the server
 	app.startServer();
-	log.info("worker " + cluster.worker.id + " listening");
+	log.debug("worker " + cluster.worker.id + " listening");
 }
 
