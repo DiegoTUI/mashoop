@@ -8,7 +8,7 @@
 
 // requires
 var cluster = require('cluster');
-var app = require("./lib/app.js");
+var app = require('./lib/app.js');
 var log = require('./lib/util/log.js');
 
 // globals
@@ -27,7 +27,8 @@ if (cluster.isMaster) {
 }
 else {
 	// start the server
-	app.startServer();
-	log.info("worker " + cluster.worker.id + " listening");
+	app.startServer(function() {
+		log.info('Worker ' + cluster.worker.id + ' / ' + numCPUs + ' listening');
+	});
 }
 
