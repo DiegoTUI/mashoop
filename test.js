@@ -8,6 +8,8 @@
 // requires
 var testing = require('testing');
 
+process.setMaxListeners(0);
+
 /**
  * Run all module tests.
  */
