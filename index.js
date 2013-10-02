@@ -7,7 +7,7 @@
  */
 
 // requires
-var app = require("./lib/app.js");
+var app = require('./lib/app.js');
 var log = require('./lib/util/log.js');
 
 // init

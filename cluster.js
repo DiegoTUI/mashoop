@@ -20,7 +20,7 @@ if (cluster.isMaster) {
 	for (var i = 0; i < numCPUs; i++) {
 		cluster.fork();
 	}
-	cluster.on('exit', function(worker, code, signal) {
+	cluster.on('exit', function(worker/*, code, signal*/) {
 		log.debug('worker ' + worker.process.pid + ' died');
 		cluster.fork();
 	});
