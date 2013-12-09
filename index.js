@@ -1,8 +1,7 @@
 'use strict';
 
 /**
- * Start in cluster mode.
- * Adapted from http://www.godtic.com/blog/2013/07/27/modo-cluster-para-node-js/
+ * Start in single process mode mode.
  * (C) 2013 TuiInnovation.
  */
 
