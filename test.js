@@ -18,7 +18,7 @@ exports.test = function(callback) {
 	var files = {};
 	files.lib = [ 'app', 'db' ];
 	files['lib/io'] = [ 'ajax', 'parametrized-string', 'xml-reader', 'json-formatter' ];
-	files['lib/services'] = [ 'at-ticket-avail', 'fs-venue-search', 'at-read-ticket-names'];
+	files['lib/services'] = [ 'at-ticket-avail', 'fs-venue-search', 'at-read-ticket-names', 'at-hotel-list'];
 	files['lib/util'] = [ 'core' ];
 	files['lib/batch'] = ['ticket-avail-parser'];
 	for (var path in files) {
