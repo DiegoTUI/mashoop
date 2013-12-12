@@ -20,7 +20,7 @@ exports.test = function(callback) {
 	files['lib/io'] = [ 'ajax', 'parametrized-string', 'xml-reader', 'json-formatter' ];
 	files['lib/services'] = [ 'at-ticket-avail', 'fs-venue-search', 'at-read-ticket-names', 'at-hotel-list', 'at-hotel-detail'];
 	files['lib/util'] = [ 'core' ];
-	files['lib/batch'] = ['ticket-avail-parser'];
+	files['lib/batch'] = ['ticket-avail-parser', 'hotel-parser'];
 	for (var path in files) {
 		for (var i=0; i<files[path].length; i++) {
 			var file = files[path][i];
