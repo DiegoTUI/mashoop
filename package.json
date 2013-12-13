@@ -20,7 +20,8 @@
     "async":"0.2.x",
     "memcached":"0.2.x",
     "loadtest":"0.1.x",
-    "yelp":"0.1.x"
+    "yelp":"0.1.x",
+    "foursquarevenues":"0.0.x"
   },
   "scripts": {
     "test": "node test.js"
