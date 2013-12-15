@@ -16,11 +16,23 @@ process.setMaxListeners(0);
 exports.test = function(callback) {
 	var tests = {};
 	var files = {};
-	files.lib = [ 'app', 'db' ];
-	files['lib/io'] = [ 'ajax', 'parametrized-string', 'xml-reader', 'json-formatter' ];
-	files['lib/services'] = ['at-ticket-avail', 'fs-venue-search', 'at-read-ticket-names', 'at-hotel-list', 'at-hotel-detail', 'ms-hotel-list', 'yp-search'];
+	files.lib = [ 'app', 
+					'db' ];
+	files['lib/io'] = [ 'ajax', 
+						'parametrized-string', 
+						'xml-reader', 
+						'json-formatter' ];
+	files['lib/services'] = ['at-ticket-avail', 
+								'fs-venue-search', 
+								'at-read-ticket-names', 
+								'at-hotel-list', 
+								'at-hotel-detail', 
+								'ms-hotel-list', 
+								'yp-search',
+								'ms-venues'];
 	files['lib/util'] = [ 'core' ];
-	files['lib/batch'] = ['ticket-avail-parser', 'hotel-parser'];
+	files['lib/batch'] = ['ticket-avail-parser', 
+							'hotel-parser'];
 	for (var path in files) {
 		for (var i=0; i<files[path].length; i++) {
 			var file = files[path][i];
