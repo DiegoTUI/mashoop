@@ -21,7 +21,8 @@ exports.test = function(callback) {
 	files['lib/io'] = [ 'ajax', 
 						'parametrized-string', 
 						'xml-reader', 
-						'json-formatter' ];
+						'json-formatter',
+						'json-reader' ];
 	files['lib/services'] = ['at-ticket-avail', 
 								'fs-venue-search', 
 								'at-read-ticket-names', 
